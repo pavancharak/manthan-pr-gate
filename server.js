@@ -4,7 +4,7 @@ import { handlePRWebhook } from "./handlers/pr.js";
 
 const app = express();
 
-// ✅ Capture raw body
+// ✅ Capture raw body for signature verification
 app.use(
   express.json({
     verify: (req, res, buf) => {
@@ -13,7 +13,7 @@ app.use(
   })
 );
 
-// 🔐 Verify GitHub signature
+// 🔐 Verify GitHub webhook signature
 function verifySignature(req) {
   const signature = req.headers["x-hub-signature-256"];
 
@@ -32,16 +32,28 @@ function verifySignature(req) {
   );
 }
 
-// 🚀 Secure webhook
+// 🚀 Webhook endpoint
 app.post("/webhook", (req, res) => {
+  const event = req.headers["x-github-event"];
+
+  console.log("📩 Webhook received:", event);
+
+  // 🔐 Verify signature
   if (!verifySignature(req)) {
     console.log("❌ Invalid signature");
     return res.sendStatus(401);
   }
 
+  // 🔥 Only handle pull_request events
+  if (event !== "pull_request") {
+    return res.sendStatus(200);
+  }
+
+  // ✅ Process PR
   handlePRWebhook(req, res);
 });
 
-app.listen(3000, () => {
+// 🚀 Start server
+app.listen(3000, "0.0.0.0", () => {
   console.log("🚀 PR Gate running");
 });
